@@ -102,7 +102,7 @@ On my machine (minikube 1.36, Terraform 1.16, Helm 4.3):
 - Scaling `claims-rag-python` to zero took its alert from `inactive` to `pending` to `firing` in about 90 s.
 - `helm lint` passes for every service and profile; `terraform fmt` and `validate` pass.
 
-Not verified yet: the reusable workflow and this repo's CI have not run on GitHub (they pass `actionlint`).
+On GitHub: this repo's CI passes, and the reusable workflow's kind smoke deploy passes for all three services (the MCP one with a generated CI-only token). It first failed because `kind load` looked for a cluster named `kind`; fixed by naming the cluster.
 
 ## Limits and troubleshooting
 
