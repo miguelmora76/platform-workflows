@@ -40,6 +40,29 @@ on:
         description: Text placed before the random value (for example local=mgt_)
         type: string
         default: ""
+      smoke-port:
+        description: Optional. Container port to port-forward and send a smoke request to (same local port)
+        type: string
+        default: ""
+      smoke-path:
+        type: string
+        default: /
+      smoke-body:
+        description: Request body (the method becomes POST)
+        type: string
+        default: ""
+      smoke-headers:
+        description: Extra request headers, one "Name: value" per line
+        type: string
+        default: ""
+      smoke-expect:
+        description: Text the response must contain
+        type: string
+        default: ""
+      smoke-bearer-secret-key:
+        description: Optional. Send the value of this key in the CI Secret as a bearer token (text after the first "=")
+        type: string
+        default: ""
       platform-ref:
         description: Ref of platform-workflows to take the chart from
         type: string
@@ -94,6 +117,37 @@ jobs:
             -f ${{ inputs.values-file }} \
             --set image.tag=ci --set alert.enabled=false \
             --wait --timeout 5m
+
+      - name: Set up Go
+        if: inputs.smoke-port != ''
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: .platform/go.mod
+          cache: false
+
+      - name: Smoke request
+        if: inputs.smoke-port != ''
+        env:
+          SERVICE: ${{ inputs.service }}
+          PORT: ${{ inputs.smoke-port }}
+          SMOKE_PATH: ${{ inputs.smoke-path }}
+          BODY: ${{ inputs.smoke-body }}
+          HEADERS: ${{ inputs.smoke-headers }}
+          EXPECT: ${{ inputs.smoke-expect }}
+          SECRET_NAME: ${{ inputs.secret-name }}
+          BEARER_KEY: ${{ inputs.smoke-bearer-secret-key }}
+        run: |
+          (cd .platform && go build -o "$GITHUB_WORKSPACE/smoke" ./cmd/smoke)
+          kubectl -n apps port-forward "deploy/$SERVICE" "$PORT:$PORT" >/dev/null 2>&1 &
+          args=(--url "http://localhost:$PORT$SMOKE_PATH" --retries 10)
+          [ -n "$BODY" ] && args+=(--body "$BODY")
+          [ -n "$EXPECT" ] && args+=(--expect-contains "$EXPECT")
+          while IFS= read -r h; do [ -n "$h" ] && args+=(--header "$h"); done <<< "$HEADERS"
+          if [ -n "$BEARER_KEY" ]; then
+            value=$(kubectl -n apps get secret "$SECRET_NAME" -o jsonpath="{.data.$BEARER_KEY}" | base64 -d)
+            args+=(--header "Authorization: Bearer ${value#*=}")
+          fi
+          ./smoke "${args[@]}"
 
       - name: Show state on failure
         if: failure()
