@@ -1,0 +1,23 @@
+{{- if .Values.alert.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "service.name" . }}
+  labels:
+    {{- include "service.labels" . | nindent 4 }}
+    {{- with .Values.alert.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  groups:
+    - name: {{ include "service.name" . }}
+      rules:
+        - alert: {{ include "service.name" . | replace "-" "_" | camelcase }}Unavailable
+          expr: kube_deployment_status_replicas_available{namespace="{{ .Release.Namespace }}", deployment="{{ include "service.name" . }}"} == 0
+          for: {{ .Values.alert.for }}
+          labels:
+            severity: {{ .Values.alert.severity }}
+          annotations:
+            summary: "{{ include "service.name" . }} has no available replicas"
+            description: "No replica of {{ include "service.name" . }} in {{ .Release.Namespace }} has been ready for {{ .Values.alert.for }}."
+{{- end }}

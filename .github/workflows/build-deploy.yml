@@ -1,0 +1,82 @@
+# Reusable workflow: build a service's image, then deploy it with the shared chart to a throwaway kind
+# cluster as a smoke test. Call it from a service repo:
+#
+#   jobs:
+#     deploy:
+#       uses: miguelmora76/platform-workflows/.github/workflows/build-deploy.yml@v1
+#       with:
+#         service: claims-rag-python
+#         values-file: deploy/values.yaml
+name: build-deploy
+
+on:
+  workflow_call:
+    inputs:
+      service:
+        description: Helm release and image name
+        type: string
+        required: true
+      values-file:
+        description: Path to the service's values file, relative to the calling repo
+        type: string
+        default: deploy/values.yaml
+      profile:
+        description: Chart profile (dev or prod-like)
+        type: string
+        default: dev
+      context:
+        description: Docker build context, relative to the calling repo
+        type: string
+        default: .
+      platform-ref:
+        description: Ref of platform-workflows to take the chart from
+        type: string
+        default: main
+
+permissions:
+  contents: read
+
+jobs:
+  smoke-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out the service
+        uses: actions/checkout@v4
+
+      - name: Check out the platform chart
+        uses: actions/checkout@v4
+        with:
+          repository: miguelmora76/platform-workflows
+          ref: ${{ inputs.platform-ref }}
+          path: .platform
+
+      - name: Lint chart with the service's values
+        uses: azure/setup-helm@v4
+      - run: |
+          helm lint .platform/charts/service \
+            -f .platform/charts/service/profiles/${{ inputs.profile }}.yaml \
+            -f ${{ inputs.values-file }}
+
+      - name: Build image
+        run: docker build -t ${{ inputs.service }}:ci ${{ inputs.context }}
+
+      - name: Create kind cluster
+        uses: helm/kind-action@v1
+
+      - name: Load image and deploy
+        run: |
+          kind load docker-image ${{ inputs.service }}:ci
+          helm upgrade --install ${{ inputs.service }} .platform/charts/service \
+            --namespace apps --create-namespace \
+            -f .platform/charts/service/profiles/${{ inputs.profile }}.yaml \
+            -f ${{ inputs.values-file }} \
+            --set image.tag=ci --set alert.enabled=false \
+            --wait --timeout 5m
+
+      - name: Show state on failure
+        if: failure()
+        run: |
+          kubectl -n apps get pods -o wide
+          kubectl -n apps describe pods
+          kubectl -n apps logs -l app.kubernetes.io/instance=${{ inputs.service }} --tail=100

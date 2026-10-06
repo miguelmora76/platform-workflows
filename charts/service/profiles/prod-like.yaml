@@ -1,0 +1,10 @@
+# Shape of a production setup (replicas, disruption budget, alert), still sized for a laptop.
+# A sample of the settings that change, not a tuned production configuration.
+replicaCount: 2
+podDisruptionBudget:
+  enabled: true
+resources:
+  requests: { cpu: 100m, memory: 256Mi }
+  limits: { memory: 512Mi }
+alert:
+  enabled: true

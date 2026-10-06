@@ -1,0 +1,44 @@
+# Defaults for every service. A service's own values file overrides these.
+replicaCount: 1
+
+image:
+  repository: ""        # required
+  tag: dev
+  pullPolicy: IfNotPresent
+
+containerPort: 8080
+
+# Plain environment variables.
+env: {}
+
+# Optional: name of an existing Secret whose keys are all injected as env vars
+# (for example ANTHROPIC_API_KEY). The chart never creates or stores secrets.
+existingSecret: ""
+
+# Mount an emptyDir at each path so the root filesystem can stay read-only.
+writablePaths: [/tmp]
+
+service:
+  enabled: true
+  type: ClusterIP
+  port: 80
+
+# Raw probe objects. If left empty the chart probes a TCP connection to containerPort.
+livenessProbe: {}
+readinessProbe: {}
+
+resources:
+  requests: { cpu: 50m, memory: 128Mi }
+  limits: { memory: 256Mi }
+
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+# PrometheusRule that fires when no replica of the deployment is available.
+# Needs the Prometheus Operator CRDs, so it is off unless the cluster has them.
+alert:
+  enabled: false
+  for: 1m
+  severity: critical
+  labels: {}

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: service
+description: Generic chart for a single HTTP service. Teams supply a values file; the platform supplies the chart.
+type: application
+version: 0.1.0
+appVersion: "0.0.0"

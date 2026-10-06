@@ -1,0 +1,27 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+      - uses: hashicorp/setup-terraform@v3
+      - name: Helm lint, every service x profile
+        run: |
+          for s in services/*.yaml; do for p in dev prod-like; do
+            helm lint charts/service -f "charts/service/profiles/$p.yaml" -f "$s"
+          done; done
+      - name: Terraform fmt and validate
+        run: |
+          terraform fmt -check -recursive terraform
+          terraform -chdir=terraform/environments/minikube init -backend=false
+          terraform -chdir=terraform/environments/minikube validate

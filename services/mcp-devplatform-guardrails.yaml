@@ -1,0 +1,19 @@
+image:
+  repository: mcp-devplatform-guardrails
+containerPort: 8787
+# The server binds to loopback only and refuses other Host headers, so it is not reachable through
+# a Service or a kubelet network probe. Use `kubectl port-forward` and an exec probe.
+service:
+  enabled: false
+# One replica only: the audit file is locked by a single writer.
+replicaCount: 1
+writablePaths: [/tmp, /data]
+existingSecret: mcp-guardrails-tokens   # holds GUARDRAILS_TOKENS=name=mgt_...
+readinessProbe:
+  exec:
+    command: [node, -e, "require('net').connect(8787,'127.0.0.1').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))"]
+  initialDelaySeconds: 3
+livenessProbe:
+  exec:
+    command: [node, -e, "require('net').connect(8787,'127.0.0.1').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))"]
+  initialDelaySeconds: 10
