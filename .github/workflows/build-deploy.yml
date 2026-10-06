@@ -75,6 +75,8 @@ jobs:
 
       - name: Create kind cluster
         uses: helm/kind-action@v1
+        with:
+          cluster_name: smoke
 
       - name: Create CI-only secret
         if: inputs.secret-name != ''
@@ -85,7 +87,7 @@ jobs:
 
       - name: Load image and deploy
         run: |
-          kind load docker-image ${{ inputs.service }}:ci
+          kind load docker-image ${{ inputs.service }}:ci --name smoke
           helm upgrade --install ${{ inputs.service }} .platform/charts/service \
             --namespace apps --create-namespace \
             -f .platform/charts/service/profiles/${{ inputs.profile }}.yaml \
