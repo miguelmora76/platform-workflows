@@ -92,6 +92,22 @@ jobs:
 It lints the chart with the service's values, builds the image, creates a throwaway kind cluster on the
 runner, deploys with `helm upgrade --install --wait`, and prints pod state and logs if that fails.
 
+## The smoke CLI (Go)
+
+`cmd/smoke` is a small standard-library Go tool that sends one HTTP request and checks the status and
+response text, retrying with backoff while a service starts. `helm --wait` only proves pods are Ready; this
+proves the service answers a real request. Exit code 0 passed, 1 failed, 2 bad usage.
+
+```bash
+go run ./cmd/smoke --url http://localhost:8000/api/ask \
+  --body '{"question":"How many days do I have to file a first-level appeal?"}' \
+  --expect-contains 'appeals#0' --retries 10
+go test -race ./...
+```
+
+The reusable workflow runs it when a caller passes `smoke-port` (see the `smoke-*` inputs in
+`build-deploy.yml`). It is a sample of a small internal CLI, not a general load or conformance tester.
+
 ## What was actually verified
 
 On my machine (minikube 1.36, Terraform 1.16, Helm 4.3):
