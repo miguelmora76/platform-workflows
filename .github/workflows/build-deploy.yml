@@ -28,6 +28,18 @@ on:
         description: Docker build context, relative to the calling repo
         type: string
         default: .
+      secret-name:
+        description: Optional. Create a Secret with this name holding a random CI-only value
+        type: string
+        default: ""
+      secret-key:
+        description: Key inside that Secret (the env var name the service reads)
+        type: string
+        default: ""
+      secret-prefix:
+        description: Text placed before the random value (for example local=mgt_)
+        type: string
+        default: ""
       platform-ref:
         description: Ref of platform-workflows to take the chart from
         type: string
@@ -63,6 +75,13 @@ jobs:
 
       - name: Create kind cluster
         uses: helm/kind-action@v1
+
+      - name: Create CI-only secret
+        if: inputs.secret-name != ''
+        run: |
+          kubectl create namespace apps
+          kubectl -n apps create secret generic "${{ inputs.secret-name }}" \
+            --from-literal="${{ inputs.secret-key }}=${{ inputs.secret-prefix }}$(openssl rand -hex 16)"
 
       - name: Load image and deploy
         run: |
