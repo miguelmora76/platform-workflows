@@ -52,7 +52,7 @@ on:
         type: string
         default: ""
       smoke-headers:
-        description: Extra request headers, one "Name: value" per line
+        description: 'Extra request headers, one "Name: value" per line'
         type: string
         default: ""
       smoke-expect:
@@ -60,7 +60,7 @@ on:
         type: string
         default: ""
       smoke-bearer-secret-key:
-        description: Optional. Send the value of this key in the CI Secret as a bearer token (text after the first "=")
+        description: 'Optional. Send the value of this key in the CI Secret as a bearer token (text after the first "=")'
         type: string
         default: ""
       platform-ref:
