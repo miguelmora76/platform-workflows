@@ -29,8 +29,10 @@ resource "helm_release" "kube_prometheus_stack" {
       prometheusSpec = {
         # Pick up PrometheusRule objects from any release, not only this one.
         ruleSelectorNilUsesHelmValues = false
-        retention                     = "2d"
-        resources                     = { requests = { cpu = "100m", memory = "400Mi" }, limits = { memory = "800Mi" } }
+        # Same for ServiceMonitor objects.
+        serviceMonitorSelectorNilUsesHelmValues = false
+        retention                               = "2d"
+        resources                               = { requests = { cpu = "100m", memory = "400Mi" }, limits = { memory = "800Mi" } }
       }
     }
   })]

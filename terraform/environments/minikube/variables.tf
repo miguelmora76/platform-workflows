@@ -23,3 +23,13 @@ variable "grafana_admin_password" {
   sensitive = true
   default   = "admin-local-only"
 }
+
+variable "external_secrets_enabled" {
+  type    = bool
+  default = true
+}
+
+variable "external_secrets_chart_version" {
+  type    = string
+  default = "2.14.0"
+}

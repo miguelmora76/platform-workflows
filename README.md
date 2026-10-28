@@ -78,6 +78,51 @@ Each service gets a `PrometheusRule` that fires when no replica of its Deploymen
 minute (`kube_deployment_status_replicas_available == 0`). It uses kube-state-metrics, so it works without
 the services exposing any metrics of their own.
 
+## Service metrics
+
+A service that exposes its own metrics sets `metrics.enabled: true` (and `metrics.path`) in its values, and the
+chart adds a `ServiceMonitor` so Prometheus scrapes it. `claims-rag-java` does this for its token and cost
+counters at `/actuator/prometheus`. Like the alert, it needs the Prometheus Operator CRDs, so the reusable
+workflow turns it off on its throwaway kind cluster.
+
+## Anthropic API key
+
+The chart and workflow never store the key. A service references a Secret that something else created:
+
+```yaml
+secretEnv:
+  ANTHROPIC_API_KEY: { secret: claims-rag-anthropic, key: api-key }
+env:
+  ASSISTANT_PROVIDER: claude
+```
+
+`secretEnv` renders a `secretKeyRef` per variable (use `existingSecret` instead to inject every key of a Secret).
+In a real cluster, create that Secret with External Secrets Operator, Sealed Secrets or SOPS. Do not pass the key
+through `--set` or a values file: it ends up in Helm release history and Terraform state.
+
+For live-model runs in CI, the reusable workflow accepts an optional `anthropic-api-key` secret and creates the
+Secret in the kind cluster (`anthropic-secret-name` / `anthropic-secret-key`, defaults `anthropic` / `api-key`).
+Pass it explicitly, only from `main` or `workflow_dispatch`, with a dedicated low-limit key:
+
+```yaml
+    secrets:
+      anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+```
+
+### External Secrets on minikube
+
+`make apply` also installs the External Secrets Operator and a local-only `ClusterSecretStore` (`local-fake`,
+`deploy/eso/`) whose "fake" provider serves a placeholder value, so no real secrets manager is involved. A service
+opts in with the chart's `externalSecret:` block, which renders an `ExternalSecret` that syncs the listed keys into
+a Secret named `<release>-external`; `secretEnv` then reads from it. `claims-rag-java` does this. To check:
+
+```bash
+kubectl -n apps get externalsecret claims-rag-java      # STATUS SecretSynced, READY True
+kubectl -n apps exec deploy/claims-rag-java -- printenv ANTHROPIC_API_KEY
+```
+
+For a real cluster swap the store for one that points at your secrets manager; the chart does not change.
+
 ## Reusing the workflow from a service repo
 
 ```yaml

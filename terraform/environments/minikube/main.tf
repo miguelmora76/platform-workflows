@@ -43,6 +43,13 @@ module "monitoring" {
   grafana_admin_password = var.grafana_admin_password
 }
 
+module "external_secrets" {
+  count = var.external_secrets_enabled ? 1 : 0
+
+  source        = "../../modules/external-secrets"
+  chart_version = var.external_secrets_chart_version
+}
+
 # Token for the MCP server's HTTP mode. Generated per apply; read it back with `make mcp-token`.
 resource "random_password" "mcp_token" {
   length  = 32
@@ -70,5 +77,5 @@ module "service" {
   profile       = var.profile
   alert_enabled = var.monitoring_enabled
 
-  depends_on = [module.monitoring, kubernetes_secret.mcp_tokens]
+  depends_on = [module.monitoring, module.external_secrets, kubernetes_secret.mcp_tokens]
 }

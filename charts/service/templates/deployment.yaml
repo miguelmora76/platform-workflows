@@ -27,11 +27,19 @@ spec:
           ports:
             - name: http
               containerPort: {{ .Values.containerPort }}
-          {{- with .Values.env }}
+          {{- if or .Values.env .Values.secretEnv }}
           env:
-            {{- range $k, $v := . }}
+            {{- range $k, $v := .Values.env }}
             - name: {{ $k }}
               value: {{ $v | quote }}
+            {{- end }}
+            {{- range $k, $ref := .Values.secretEnv }}
+            - name: {{ $k }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required (printf "secretEnv.%s.secret is required" $k) $ref.secret }}
+                  key: {{ required (printf "secretEnv.%s.key is required" $k) $ref.key }}
+                  optional: {{ default false $ref.optional }}
             {{- end }}
           {{- end }}
           {{- if .Values.existingSecret }}
