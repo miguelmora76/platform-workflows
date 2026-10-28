@@ -15,6 +15,23 @@ env: {}
 # (for example ANTHROPIC_API_KEY). The chart never creates or stores secrets.
 existingSecret: ""
 
+# Optional: individual env vars read from a single key of an existing Secret (least privilege, unlike
+# existingSecret which injects every key). Example:
+#   secretEnv:
+#     ANTHROPIC_API_KEY: { secret: my-service-anthropic, key: api-key }
+# Set optional: true to let the pod start when the Secret or key is missing.
+secretEnv: {}
+
+# Optional: an ExternalSecret that syncs keys from a secrets manager into a Kubernetes Secret, which secretEnv or
+# existingSecret can then reference. Holds only references, never values. Needs the External Secrets Operator CRDs
+# and an existing (Cluster)SecretStore. The target Secret defaults to <release>-external.
+externalSecret:
+  enabled: false
+  store: { name: "", kind: ClusterSecretStore }
+  refreshInterval: 1h
+  target: ""
+  data: []        # - { secretKey: api-key, remoteKey: path/in/store, property: optional-json-field }
+
 # Mount an emptyDir at each path so the root filesystem can stay read-only.
 writablePaths: [/tmp]
 
@@ -42,3 +59,10 @@ alert:
   for: 1m
   severity: critical
   labels: {}
+
+# ServiceMonitor that makes Prometheus scrape the service's own metrics endpoint (needs the service to expose one
+# and service.enabled). Needs the Prometheus Operator CRDs, so it is off unless the cluster has them.
+metrics:
+  enabled: false
+  path: /metrics
+  interval: 30s

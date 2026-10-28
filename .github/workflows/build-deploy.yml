@@ -63,10 +63,26 @@ on:
         description: 'Optional. Send the value of this key in the CI Secret as a bearer token (text after the first "=")'
         type: string
         default: ""
+      anthropic-secret-name:
+        description: Name of the Secret created from the anthropic-api-key secret (only used when that secret is passed)
+        type: string
+        default: anthropic
+      anthropic-secret-key:
+        description: Key inside that Secret
+        type: string
+        default: api-key
       platform-ref:
         description: Ref of platform-workflows to take the chart from
         type: string
         default: main
+
+    secrets:
+      anthropic-api-key:
+        description: >
+          Optional. When set, the kind cluster gets a Secret holding it (see anthropic-secret-name/-key), so the
+          service can call the real model. Map it explicitly in the caller (not "secrets: inherit") and only run
+          that path on main or workflow_dispatch: forks get no secrets and every run spends money.
+        required: false
 
 permissions:
   contents: read
@@ -75,6 +91,9 @@ jobs:
   smoke-deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      # Job-level so step conditions can test it; the value is masked in logs because it is a secret.
+      ANTHROPIC_API_KEY: ${{ secrets.anthropic-api-key }}
     steps:
       - name: Check out the service
         uses: actions/checkout@v4
@@ -108,6 +127,16 @@ jobs:
           kubectl -n apps create secret generic "${{ inputs.secret-name }}" \
             --from-literal="${{ inputs.secret-key }}=${{ inputs.secret-prefix }}$(openssl rand -hex 16)"
 
+      - name: Create Anthropic API key secret
+        if: env.ANTHROPIC_API_KEY != ''
+        env:
+          SECRET_NAME: ${{ inputs.anthropic-secret-name }}
+          SECRET_KEY: ${{ inputs.anthropic-secret-key }}
+        run: |
+          kubectl create namespace apps --dry-run=client -o yaml | kubectl apply -f -
+          kubectl -n apps create secret generic "$SECRET_NAME" \
+            --from-literal="$SECRET_KEY=$ANTHROPIC_API_KEY"
+
       - name: Load image and deploy
         run: |
           kind load docker-image ${{ inputs.service }}:ci --name smoke
@@ -115,7 +144,7 @@ jobs:
             --namespace apps --create-namespace \
             -f .platform/charts/service/profiles/${{ inputs.profile }}.yaml \
             -f ${{ inputs.values-file }} \
-            --set image.tag=ci --set alert.enabled=false \
+            --set image.tag=ci --set alert.enabled=false --set metrics.enabled=false \
             --wait --timeout 5m
 
       - name: Set up Go

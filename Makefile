@@ -3,7 +3,7 @@ SIBLINGS := claims-rag-java claims-rag-python mcp-devplatform-guardrails
 TF       := terraform -chdir=terraform/environments/minikube
 PROFILE  ?= dev
 
-.PHONY: cluster images lint apply destroy mcp-token status
+.PHONY: cluster images lint apply eso-store destroy mcp-token status
 cluster:
 	minikube start --driver=docker --cpus=4 --memory=5g
 
@@ -17,8 +17,17 @@ lint:
 	terraform fmt -check -recursive terraform
 	$(TF) init -backend=false >/dev/null && $(TF) validate
 
+# Three steps because the ClusterSecretStore needs the External Secrets CRDs, and claims-rag-java's pod needs the
+# Secret that store produces: install the operator, apply the store, then everything else.
 apply:
-	$(TF) init && $(TF) apply -auto-approve -var profile=$(PROFILE)
+	$(TF) init
+	$(TF) apply -auto-approve -var profile=$(PROFILE) -target=module.external_secrets
+	$(MAKE) eso-store
+	$(TF) apply -auto-approve -var profile=$(PROFILE)
+
+# Apply the local-only fake ClusterSecretStore (needs the External Secrets CRDs from the first apply step).
+eso-store:
+	kubectl apply -f deploy/eso/clustersecretstore-fake.yaml
 
 destroy:
 	$(TF) destroy -auto-approve
